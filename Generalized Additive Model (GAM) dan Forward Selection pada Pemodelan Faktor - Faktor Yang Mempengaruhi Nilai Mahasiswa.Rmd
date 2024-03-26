@@ -1,0 +1,176 @@
+---
+title: "TUBEZ"
+author: "Kanaya"
+date: "2023-05-15"
+output: html_document
+---
+
+# Import Data
+```{r}
+library(readr)
+library(dplyr)
+library(leaps)
+dataset <- read.csv("dataset.csv")
+```
+
+# Eksplorasi Data
+## Manipulasi data
+```{r}
+dataset$Target <- as.factor(dataset$Target)
+```
+
+## Melihat ringkasan data
+```{r}
+glimpse(dataset)
+```
+## Menghapus kolom yang tidak diperlukan
+```{r}
+dataset <- dataset %>% 
+          #menghapus kolom Curricular.units.1st.sem..credited.
+          select(-Curricular.units.1st.sem..credited.)
+```
+
+
+```{r}
+dataset <- dataset %>% 
+          #menghapus kolom Curricular.units.1st.sem..enrolled.
+          select(-Curricular.units.1st.sem..enrolled.)
+```
+
+```{r}
+dataset <- dataset %>% 
+          #menghapus kolom Curricular.units.1st.sem..evaluations.
+          select(-Curricular.units.1st.sem..evaluations.)
+```
+
+```{r}
+dataset <- dataset %>% 
+          #menghapus kolom Curricular.units.1st.sem..approved.
+          select(-Curricular.units.1st.sem..approved.)
+```
+
+```{r}
+dataset <- dataset %>% 
+          #menghapus kolom Curricular.units.2nd.sem..credited..
+          select(-Curricular.units.2nd.sem..credited.)
+```
+
+
+```{r}
+dataset <- dataset %>% 
+          #menghapus kolom Curricular.units.1st.sem..without.evaluations.
+          select(-Curricular.units.1st.sem..without.evaluations.)
+```
+
+```{r}
+dataset <- dataset %>% 
+          #menghapus kolom Curricular.units.2nd.sem..enrolled.
+          select(-Curricular.units.2nd.sem..enrolled.)
+```
+
+```{r}
+dataset <- dataset %>% 
+          #menghapus kolom Curricular.units.2nd.sem..evaluations.
+          select(-Curricular.units.2nd.sem..evaluations.)
+```
+
+```{r}
+dataset <- dataset %>% 
+          #menghapus kolom Curricular.units.2nd.sem..approved.
+          select(-Curricular.units.2nd.sem..approved.)
+```
+
+```{r}
+dataset <- dataset %>% 
+          #menghapus kolom Curricular.units.2nd.sem..without.evaluations.
+          select(-Curricular.units.2nd.sem..without.evaluations.)
+```
+
+# Melihat Missing Data
+```{r}
+sum(is.na(dataset))
+```
+
+# Generalize Additive Model
+
+## Membagi data menjadi data uji dan data latih
+```{r}
+set.seed(721)
+trainid <- sample(1:nrow(dataset), nrow(dataset)*0.8)
+dataset.train <- dataset[trainid, ]
+dataset.test <- dataset[-trainid, ]
+```
+
+## stepwise selection forward
+```{r}
+fit<- regsubsets(Curricular.units.2nd.sem..grade. ~ .,data=dataset.train, nvmax =24 ,method ="forward")
+fit.summary<- summary(fit)
+fit.summary
+```
+
+# Pemodelan GAM
+```{r}
+library(ISLR)
+library(gam)
+```
+
+## Membuat Plot Cp,BIC and adj R2 untuk menentukan variabel terbaik
+```{r}
+par(mfrow = c(1,3))
+plot(fit.summary$cp,xlab ="Number of variables",ylab ="Cp",type ="l")
+min.cp<- min(fit.summary$cp)
+std.cp<- sd(fit.summary$cp)
+abline(h =min.cp + 0.2 * std.cp,col ="red",lty =2)
+abline(h =min.cp - 0.2 * std.cp,col ="red",lty =2)
+abline(v =8,col ="red",lty =2)
+plot(fit.summary$bic,xlab ="Number of variables",ylab ="BIC",type='l')
+min.bic<- min(fit.summary$bic)
+std.bic<- sd(fit.summary$bic)
+abline(h =min.bic + 0.2 * std.bic,col ="red",lty =2)
+abline(h =min.bic - 0.2 * std.bic,col ="red",lty =2)
+abline(v =8,col ="red",lty =2)
+plot(fit.summary$adjr2,xlab ="Number of variables",
+ylab ="Adjusted R2",type ="l",
+ylim = c(0.4,0.84))
+max.adjr2<- max(fit.summary$adjr2)
+std.adjr2<- sd(fit.summary$adjr2)
+abline(h =max.adjr2 + 0.2 * std.adjr2,col ="red",lty =2)
+abline(h =max.adjr2 - 0.2 * std.adjr2,col ="red",lty =2)
+abline(v =8,col ="red",lty =2)
+```
+
+## Membuat model GAM
+```{r}
+fit.gam <- gam(Curricular.units.2nd.sem..grade. ~ Target + s(ï..Marital.status, df=2)
+               + s(Application.mode, df=2) + s(Course, df=2)
+               + s(Curricular.units.1st.sem..grade., df=2) + s(GDP, df=2),
+               data=dataset.train)
+par(mfrow = c(2, 3))
+plot(fit.gam, se = T, col = "blue")
+```
+
+# Melihat nilai MSE dan R2
+```{r}
+preds <- predict(fit.gam, dataset.test)
+err <- mean((dataset.test$Curricular.units.2nd.sem..grade. - preds)^2)
+err
+```
+
+```{r}
+tss <- mean((dataset.test$Curricular.units.2nd.sem..grade. - mean(dataset.test$Curricular.units.2nd.sem..grade.))^2)
+rss <- 1 - err / tss
+rss
+```
+# Evaluasi Performa Model
+```{r}
+summary(fit.gam)
+```
+Berdasarkan hasil analisis yang diberikan, terdapat model GAM (Generalized Additive Model) yang dibuat untuk memodelkan hubungan antara variabel Curricular.units.2nd.sem..grade. dengan beberapa variabel prediktor, yaitu Target, Marital.status, Application.mode, Course, Curricular.units.1st.sem..grade., dan GDP. Model GAM ini menggunakan distribusi gaussian (normal). Nilai parameter dispersi yang digunakan dalam model ini adalah 7.1135.
+
+Null Deviance: 97351.83 on 3538 degrees of freedom: Menunjukkan nilai deviance ketika model hanya memprediksi variabel respon dengan menggunakan intercept saja, tanpa menggunakan variabel prediktor apapun. Nilai deviance ini dihitung dari jumlah kuadrat deviasi antara nilai aktual dari variabel respon dan nilai rata-rata dari variabel respon. Dalam hal ini, nilai deviance yang dihasilkan adalah sebesar 97351.83 pada 3538 derajat kebebasan.
+
+Residual Deviance: 25082.26 on 3526 degrees of freedom: Menunjukkan nilai deviance residu setelah model GAM yang dibuat diterapkan pada data. Nilai deviance residu dihitung dari jumlah kuadrat deviasi antara nilai aktual dari variabel respon dan nilai yang diprediksi oleh model GAM. Semakin kecil nilai residual deviance, semakin baik model GAM dalam memprediksi variabel respon. Dalam hal ini, nilai deviance residu yang dihasilkan adalah sebesar 25082.26 pada 3526 derajat kebebasan.
+
+AIC: 17001.73: Menunjukkan nilai informasi Akaike (Akaike Information Criterion) dari model GAM yang dibuat. AIC digunakan sebagai metode untuk membandingkan model yang berbeda dan memilih model terbaik. Semakin kecil nilai AIC, semakin baik model dalam menjelaskan data. Dalam hal ini, nilai AIC yang dihasilkan adalah sebesar 17001.73.
+
+Hasil analisis dari tabel ANOVA komponen nonparametrik menunjukkan adanya hubungan non linier yang kuat antara variabel 
